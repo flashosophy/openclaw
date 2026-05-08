@@ -239,10 +239,10 @@ async function buildHostApprovalDecisionParams(
   params: HostExecApprovalParams,
 ): Promise<RequestExecApprovalDecisionParams> {
   const commandSpans =
-    params.commandHighlighting === false
-      ? undefined
-      : (params.commandSpans ??
-        (await resolveCommandSpans(params.command ?? params.systemRunPlan?.commandText)));
+    params.commandHighlighting === true
+      ? (params.commandSpans ??
+        (await resolveCommandSpans(params.command ?? params.systemRunPlan?.commandText)))
+      : undefined;
   return {
     id: params.approvalId,
     command: params.command,

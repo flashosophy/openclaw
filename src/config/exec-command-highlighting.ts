@@ -12,5 +12,5 @@ export function resolveExecCommandHighlighting(params: {
     ? config.agents?.list?.find((entry) => normalizeAgentId(entry.id) === agentId)?.tools?.exec
         ?.commandHighlighting
     : undefined;
-  return agentValue ?? globalValue ?? true;
+  return agentValue ?? globalValue ?? false;
 }

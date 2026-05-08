@@ -283,7 +283,7 @@ export type ExecToolConfig = {
    * Prevents silent allowlist reuse and allow-always persistence for those forms.
    */
   strictInlineEval?: boolean;
-  /** Render parser-derived command highlights in exec approval prompts (default: true). */
+  /** Render parser-derived command highlights in exec approval prompts (default: false). */
   commandHighlighting?: boolean;
   /** Extra explicit directories trusted for safeBins path checks (never derived from PATH). */
   safeBinTrustedDirs?: string[];

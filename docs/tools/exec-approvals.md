@@ -168,11 +168,11 @@ automatically.
 
 ### `tools.exec.commandHighlighting`
 
-<ParamField path="commandHighlighting" type="boolean" default="true">
+<ParamField path="commandHighlighting" type="boolean" default="false">
   Controls only presentation in exec approval prompts. When enabled,
   OpenClaw may attach parser-derived command spans so Web approval
-  prompts can highlight command tokens. Set it to `false` to render
-  plain command text.
+  prompts can highlight command tokens. Set it to `true` to enable
+  command text highlighting.
 </ParamField>
 
 This setting does **not** change `security`, `ask`, allowlist matching,

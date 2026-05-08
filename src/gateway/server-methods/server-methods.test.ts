@@ -1478,7 +1478,9 @@ describe("exec approval handlers", () => {
   });
 
   it("preserves command analysis and normalizes command spans", async () => {
-    const { handlers, broadcasts, respond, context } = createExecApprovalFixture();
+    const { handlers, broadcasts, respond, context } = createExecApprovalFixture({
+      config: { tools: { exec: { commandHighlighting: true } } },
+    });
     await requestExecApproval({
       handlers,
       respond,
@@ -1503,6 +1505,28 @@ describe("exec approval handlers", () => {
       { startIndex: 0, endIndex: 2 },
       { startIndex: 5, endIndex: 11 },
     ]);
+  });
+
+  it("drops command spans by default", async () => {
+    const { handlers, broadcasts, respond, context } = createExecApprovalFixture();
+    await requestExecApproval({
+      handlers,
+      respond,
+      context,
+      params: {
+        timeoutMs: 10,
+        command: "ls | python -c 'print(1)'",
+        commandSpans: [
+          { startIndex: 0, endIndex: 2 },
+          { startIndex: 5, endIndex: 11 },
+        ],
+      },
+    });
+    const { request } = getRequestedExecApprovalPayload(broadcasts);
+    expect(request["commandAnalysis"]).toEqual(
+      expect.objectContaining({ commandCount: 1, nestedCommandCount: 0 }),
+    );
+    expect(request["commandSpans"]).toBeUndefined();
   });
 
   it("drops command spans when command highlighting is disabled", async () => {

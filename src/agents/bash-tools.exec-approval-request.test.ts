@@ -217,6 +217,7 @@ describe("requestExecApprovalDecision", () => {
     await registerExecApprovalRequestForHost({
       approvalId: "approval-id",
       command: 'ls | grep "stuff" | python -c \'print("hi")\'',
+      commandHighlighting: true,
       workdir: "/tmp/project",
       host: "node",
       security: "allowlist",
@@ -229,6 +230,26 @@ describe("requestExecApprovalDecision", () => {
     expect(payload?.commandSpans).toContainEqual({ startIndex: 0, endIndex: 2 });
     expect(payload?.commandSpans).toContainEqual({ startIndex: 5, endIndex: 9 });
     expect(payload?.commandSpans).toContainEqual({ startIndex: 20, endIndex: 26 });
+  });
+
+  it("does not generate command spans by default", async () => {
+    vi.mocked(callGatewayTool).mockResolvedValue({ id: "approval-id", expiresAtMs: 1234 });
+
+    await registerExecApprovalRequestForHost({
+      approvalId: "approval-id",
+      command: 'ls | grep "stuff" | python -c \'print("hi")\'',
+      workdir: "/tmp/project",
+      host: "node",
+      security: "allowlist",
+      ask: "always",
+    });
+
+    expect(commandExplainerMock.explainShellCommand).not.toHaveBeenCalled();
+    expect(commandExplainerMock.formatCommandSpans).not.toHaveBeenCalled();
+    const payload = vi.mocked(callGatewayTool).mock.calls[0]?.[2] as
+      | { commandSpans?: unknown }
+      | undefined;
+    expect(payload?.commandSpans).toBeUndefined();
   });
 
   it("does not generate command spans when command highlighting is disabled", async () => {
@@ -264,6 +285,7 @@ describe("requestExecApprovalDecision", () => {
         agentId: null,
         sessionKey: null,
       },
+      commandHighlighting: true,
       workdir: "/tmp/project",
       host: "node",
       security: "allowlist",
@@ -283,6 +305,7 @@ describe("requestExecApprovalDecision", () => {
       approvalId: "approval-id",
       command: "echo hi",
       commandSpans: [{ startIndex: 0, endIndex: 4 }],
+      commandHighlighting: true,
       workdir: "/tmp/project",
       host: "node",
       security: "allowlist",
