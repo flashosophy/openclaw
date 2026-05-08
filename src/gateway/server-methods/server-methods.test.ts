@@ -1554,7 +1554,9 @@ describe("exec approval handlers", () => {
   });
 
   it("drops command spans when command display sanitization changes offsets", async () => {
-    const { handlers, broadcasts, respond, context } = createExecApprovalFixture();
+    const { handlers, broadcasts, respond, context } = createExecApprovalFixture({
+      config: { tools: { exec: { commandHighlighting: true } } },
+    });
     await requestExecApproval({
       handlers,
       respond,
