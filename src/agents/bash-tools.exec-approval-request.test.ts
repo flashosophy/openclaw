@@ -231,6 +231,27 @@ describe("requestExecApprovalDecision", () => {
     expect(payload?.commandSpans).toContainEqual({ startIndex: 20, endIndex: 26 });
   });
 
+  it("does not generate command spans when command highlighting is disabled", async () => {
+    vi.mocked(callGatewayTool).mockResolvedValue({ id: "approval-id", expiresAtMs: 1234 });
+
+    await registerExecApprovalRequestForHost({
+      approvalId: "approval-id",
+      command: 'ls | grep "stuff" | python -c \'print("hi")\'',
+      commandHighlighting: false,
+      workdir: "/tmp/project",
+      host: "node",
+      security: "allowlist",
+      ask: "always",
+    });
+
+    expect(commandExplainerMock.explainShellCommand).not.toHaveBeenCalled();
+    expect(commandExplainerMock.formatCommandSpans).not.toHaveBeenCalled();
+    const payload = vi.mocked(callGatewayTool).mock.calls[0]?.[2] as
+      | { commandSpans?: unknown }
+      | undefined;
+    expect(payload?.commandSpans).toBeUndefined();
+  });
+
   it("uses system run plan command text for host approval explanations", async () => {
     vi.mocked(callGatewayTool).mockResolvedValue({ id: "approval-id", expiresAtMs: 1234 });
 
