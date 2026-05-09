@@ -759,10 +759,12 @@ describe("spawnAcpDirect", () => {
         sessionKey: accepted.childSessionKey,
         entry: expect.objectContaining({
           sessionId: "sess-123",
-          sessionFile: "sess-123",
         }),
       }),
     );
+    for (const call of hoisted.upsertSessionEntryMock.mock.calls) {
+      expect(call[0].entry).not.toHaveProperty("transcriptLocator");
+    }
   });
 
   it("allows ACP resume IDs recorded for the requester session", async () => {
@@ -1567,9 +1569,11 @@ describe("spawnAcpDirect", () => {
         agentId: "codex",
         entry: expect.objectContaining({
           sessionId: "sess-123",
-          sessionFile: "sess-123",
         }),
       }),
+    );
+    expect(hoisted.upsertSessionEntryMock.mock.calls[0]?.[0].entry).not.toHaveProperty(
+      "transcriptLocator",
     );
   });
 
@@ -1931,9 +1935,11 @@ describe("spawnAcpDirect", () => {
           agentId: "codex",
           entry: expect.objectContaining({
             sessionId: "sess-123",
-            sessionFile: "sess-123",
           }),
         }),
+      );
+      expect(hoisted.upsertSessionEntryMock.mock.calls.at(-1)?.[0].entry).not.toHaveProperty(
+        "transcriptLocator",
       );
     }
     expectAgentGatewayCall(expectedAgentCall);
