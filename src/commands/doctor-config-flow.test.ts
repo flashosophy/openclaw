@@ -1848,7 +1848,7 @@ describe("doctor config flow", () => {
           blockStreaming: true,
         });
       },
-      { skipSessionCleanup: true },
+      { skipStateCleanup: true },
     );
   });
 
@@ -2197,7 +2197,7 @@ describe("doctor config flow", () => {
           "1212",
         ]);
       },
-      { skipSessionCleanup: true },
+      { skipStateCleanup: true },
     );
   });
 
@@ -2307,7 +2307,7 @@ describe("doctor config flow", () => {
           confirm: async () => false,
         });
       },
-      { skipSessionCleanup: true },
+      { skipStateCleanup: true },
     );
 
     const cfg = result.cfg as {
@@ -2657,7 +2657,7 @@ describe("doctor config flow", () => {
           noteSpy.mockClear();
         }
       },
-      { skipSessionCleanup: true },
+      { skipStateCleanup: true },
     );
   });
 
