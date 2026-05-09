@@ -222,7 +222,6 @@ describe("getReplyFromConfig fast test bootstrap", () => {
           workspace: path.join(home, "workspace"),
         },
       },
-      session: { store: path.join(home, "sessions.json") },
     } as OpenClawConfig);
 
     const reply = await getReplyFromConfig(
@@ -257,7 +256,6 @@ describe("getReplyFromConfig fast test bootstrap", () => {
           workspace: path.join(home, "workspace"),
         },
       },
-      session: { store: path.join(home, "sessions.json") },
     } as OpenClawConfig);
     mocks.resolveReplyDirectives.mockResolvedValueOnce({
       kind: "reply",
