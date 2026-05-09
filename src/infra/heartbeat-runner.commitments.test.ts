@@ -113,7 +113,7 @@ describe("runHeartbeatOnce commitments", () => {
           }),
         ],
       };
-      await saveCommitmentStore(undefined, storePayload);
+      await saveCommitmentStore(storePayload);
 
       const sendTelegram = vi.fn().mockResolvedValue({
         messageId: "m1",
@@ -193,7 +193,7 @@ describe("runHeartbeatOnce commitments", () => {
           lastProvider: "telegram",
           lastTo: "stale-target",
         });
-        await saveCommitmentStore(undefined, {
+        await saveCommitmentStore({
           version: 1,
           commitments: [buildCommitment({ id: "cm_interview", sessionKey, to: "155462274" })],
         });
@@ -271,7 +271,7 @@ describe("runHeartbeatOnce commitments", () => {
           lastProvider: "telegram",
           lastTo: "155462274",
         });
-        await saveCommitmentStore(undefined, {
+        await saveCommitmentStore({
           version: 1,
           commitments: [buildCommitment({ id: "cm_interview", sessionKey, to: "155462274" })],
         });
@@ -344,7 +344,7 @@ describe("runHeartbeatOnce commitments", () => {
         session: {},
         commitments: { enabled: true },
       };
-      await saveCommitmentStore(undefined, {
+      await saveCommitmentStore({
         version: 1,
         commitments: [buildCommitment({ id: "cm_interview", sessionKey: dueSessionKey, to: "1" })],
       });
