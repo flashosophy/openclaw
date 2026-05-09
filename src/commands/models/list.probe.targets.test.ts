@@ -263,7 +263,7 @@ describe("buildProbeTargets reason codes", () => {
     expect(plan.results[0]?.error).toContain("env:default:MISSING_ANTHROPIC_TOKEN");
   });
 
-  it("skips marker-only models.json credentials when building probe targets", async () => {
+  it("skips marker-only model catalog credentials when building probe targets", async () => {
     mockStore = {
       version: 1,
       profiles: {},
@@ -276,7 +276,7 @@ describe("buildProbeTargets reason codes", () => {
     });
   });
 
-  it("does not treat arbitrary all-caps models.json apiKey values as markers", async () => {
+  it("does not treat arbitrary all-caps model catalog apiKey values as markers", async () => {
     mockStore = {
       version: 1,
       profiles: {},
@@ -286,9 +286,13 @@ describe("buildProbeTargets reason codes", () => {
       const plan = await buildAnthropicPlanFromModelsJsonApiKey("ALLCAPS_SAMPLE");
       expect(plan.results).toStrictEqual([]);
       expect(plan.targets).toHaveLength(1);
-      expect(plan.targets[0]?.provider).toBe("anthropic");
-      expect(plan.targets[0]?.source).toBe("models.json");
-      expect(plan.targets[0]?.label).toBe("models.json");
+      expect(plan.targets[0]).toEqual(
+        expect.objectContaining({
+          provider: "anthropic",
+          source: "model_catalog",
+          label: "model catalog",
+        }),
+      );
     });
   });
 
@@ -327,10 +331,14 @@ describe("buildProbeTargets reason codes", () => {
 
       expect(plan.results).toStrictEqual([]);
       expect(plan.targets).toHaveLength(1);
-      expect(plan.targets[0]?.provider).toBe("zai");
-      expect(plan.targets[0]?.model).toStrictEqual({ provider: "zai", model: "glm-4.7" });
-      expect(plan.targets[0]?.source).toBe("models.json");
-      expect(plan.targets[0]?.label).toBe("models.json");
+      expect(plan.targets[0]).toEqual(
+        expect.objectContaining({
+          provider: "zai",
+          model: { provider: "zai", model: "glm-4.7" },
+          source: "model_catalog",
+          label: "model catalog",
+        }),
+      );
     });
   });
 

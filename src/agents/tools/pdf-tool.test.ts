@@ -128,7 +128,7 @@ async function stubPdfToolInfra(
           }) as never;
   vi.spyOn(modelDiscovery, "discoverModels").mockReturnValue({ find } as never);
 
-  vi.spyOn(modelsConfig, "ensureOpenClawModelsJson").mockResolvedValue({
+  vi.spyOn(modelsConfig, "ensureOpenClawModelCatalog").mockResolvedValue({
     agentDir,
     wrote: false,
   });
@@ -427,9 +427,9 @@ describe("createPdfTool", () => {
         pdf: "/tmp/doc.pdf",
       });
 
-      const ensureModelsJsonMock = vi.mocked(modelsConfig.ensureOpenClawModelsJson);
+      const ensureModelCatalogMock = vi.mocked(modelsConfig.ensureOpenClawModelCatalog);
       const [modelsConfigArg, modelsAgentDir, modelsOptions] =
-        ensureModelsJsonMock.mock.calls[0] ?? [];
+        ensureModelCatalogMock.mock.calls[0] ?? [];
       expectFields(
         (modelsConfigArg as { agents?: { defaults?: unknown } } | undefined)?.agents?.defaults,
         {
