@@ -308,7 +308,35 @@ vi.mock("matrix-js-sdk/lib/matrix.js", async () => {
 
 const { encodeRecoveryKey } = await import("matrix-js-sdk/lib/crypto-api/recovery-key.js");
 const { DecryptionFailureCode } = await import("matrix-js-sdk/lib/crypto-api/index.js");
+const { readMatrixRecoveryKey, writeMatrixRecoveryKey } =
+  await import("./sdk/recovery-key-state.js");
 const { MatrixClient } = await import("./sdk.js");
+
+function createTestRecoveryKeyPath(prefix: string): string {
+  return path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), prefix)),
+    "matrix",
+    "accounts",
+    "default",
+    "matrix.example__bot",
+    "token",
+    "recovery-key.json",
+  );
+}
+
+function writeStoredRecoveryKeyForTest(params: {
+  recoveryKeyPath: string;
+  encodedPrivateKey?: string;
+  privateKeyBytes: Uint8Array;
+}): void {
+  writeMatrixRecoveryKey(params.recoveryKeyPath, {
+    version: 1,
+    createdAt: new Date().toISOString(),
+    keyId: "SSSSKEY",
+    encodedPrivateKey: params.encodedPrivateKey,
+    privateKeyBase64: Buffer.from(params.privateKeyBytes).toString("base64"),
+  });
+}
 
 describe("MatrixClient request hardening", () => {
   beforeEach(() => {
@@ -1625,19 +1653,14 @@ describe("MatrixClient crypto bootstrapping", () => {
   });
 
   it("provides secret storage callbacks and resolves stored recovery key", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-sdk-test-"));
-    const recoveryKeyPath = path.join(tmpDir, "recovery-key.json");
+    const recoveryKeyPath = createTestRecoveryKeyPath("matrix-sdk-test-");
     const privateKeyBase64 = Buffer.from([1, 2, 3, 4]).toString("base64");
-    fs.writeFileSync(
-      recoveryKeyPath,
-      JSON.stringify({
-        version: 1,
-        createdAt: new Date().toISOString(),
-        keyId: "SSSSKEY",
-        privateKeyBase64,
-      }),
-      "utf8",
-    );
+    writeMatrixRecoveryKey(recoveryKeyPath, {
+      version: 1,
+      createdAt: new Date().toISOString(),
+      keyId: "SSSSKEY",
+      privateKeyBase64,
+    });
 
     const client = new MatrixClient("https://matrix.example.org", "token", {
       encryption: true,
@@ -2007,8 +2030,7 @@ describe("MatrixClient crypto bootstrapping", () => {
       })),
     }));
 
-    const recoveryDir = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-sdk-verify-used-key-"));
-    const recoveryKeyPath = path.join(recoveryDir, "recovery-key.json");
+    const recoveryKeyPath = createTestRecoveryKeyPath("matrix-sdk-verify-used-key-");
     const client = new MatrixClient("https://matrix.example.org", "token", {
       encryption: true,
       recoveryKeyPath,
@@ -2021,7 +2043,8 @@ describe("MatrixClient crypto bootstrapping", () => {
     expect(result.backupUsable).toBe(true);
     expect(result.deviceOwnerVerified).toBe(true);
     expect(result.recoveryKeyStored).toBe(true);
-    expect(fs.existsSync(recoveryKeyPath)).toBe(true);
+    expect(readMatrixRecoveryKey(recoveryKeyPath)?.encodedPrivateKey).toBe(encoded);
+    expect(fs.existsSync(recoveryKeyPath)).toBe(false);
   });
 
   it("fails recovery-key verification when the device lacks full cross-signing identity trust", async () => {
@@ -2103,8 +2126,7 @@ describe("MatrixClient crypto bootstrapping", () => {
       })),
     }));
 
-    const recoveryDir = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-sdk-verify-usable-"));
-    const recoveryKeyPath = path.join(recoveryDir, "recovery-key.json");
+    const recoveryKeyPath = createTestRecoveryKeyPath("matrix-sdk-verify-usable-");
     const client = new MatrixClient("https://matrix.example.org", "token", {
       encryption: true,
       recoveryKeyPath,
@@ -2117,7 +2139,8 @@ describe("MatrixClient crypto bootstrapping", () => {
     expect(result.deviceOwnerVerified).toBe(false);
     expect(result.verified).toBe(false);
     expect(result.recoveryKeyStored).toBe(true);
-    expect(fs.existsSync(recoveryKeyPath)).toBe(true);
+    expect(readMatrixRecoveryKey(recoveryKeyPath)?.encodedPrivateKey).toBe(encoded);
+    expect(fs.existsSync(recoveryKeyPath)).toBe(false);
   });
 
   it("does not persist a staged recovery key when backup usability came from existing material", async () => {
@@ -2160,21 +2183,12 @@ describe("MatrixClient crypto bootstrapping", () => {
       })),
     }));
 
-    const recoveryDir = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-sdk-verify-cached-"));
-    const recoveryKeyPath = path.join(recoveryDir, "recovery-key.json");
-    fs.writeFileSync(
+    const recoveryKeyPath = createTestRecoveryKeyPath("matrix-sdk-verify-cached-");
+    writeStoredRecoveryKeyForTest({
       recoveryKeyPath,
-      JSON.stringify({
-        version: 1,
-        createdAt: new Date().toISOString(),
-        keyId: "SSSSKEY",
-        encodedPrivateKey: previousEncoded,
-        privateKeyBase64: Buffer.from(
-          new Uint8Array(Array.from({ length: 32 }, (_, i) => i + 5)),
-        ).toString("base64"),
-      }),
-      "utf8",
-    );
+      encodedPrivateKey: previousEncoded,
+      privateKeyBytes: new Uint8Array(Array.from({ length: 32 }, (_, i) => i + 5)),
+    });
 
     const client = new MatrixClient("https://matrix.example.org", "token", {
       encryption: true,
@@ -2186,10 +2200,7 @@ describe("MatrixClient crypto bootstrapping", () => {
     expect(result.success).toBe(false);
     expect(result.recoveryKeyAccepted).toBe(false);
     expect(result.backupUsable).toBe(true);
-    const persisted = JSON.parse(fs.readFileSync(recoveryKeyPath, "utf8")) as {
-      encodedPrivateKey?: string;
-    };
-    expect(persisted.encodedPrivateKey).toBe(previousEncoded);
+    expect(readMatrixRecoveryKey(recoveryKeyPath)?.encodedPrivateKey).toBe(previousEncoded);
   });
 
   it("does not persist a staged recovery key that secret storage did not validate", async () => {
@@ -2232,21 +2243,12 @@ describe("MatrixClient crypto bootstrapping", () => {
       })),
     }));
 
-    const recoveryDir = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-sdk-verify-invalid-"));
-    const recoveryKeyPath = path.join(recoveryDir, "recovery-key.json");
-    fs.writeFileSync(
+    const recoveryKeyPath = createTestRecoveryKeyPath("matrix-sdk-verify-invalid-");
+    writeStoredRecoveryKeyForTest({
       recoveryKeyPath,
-      JSON.stringify({
-        version: 1,
-        createdAt: new Date().toISOString(),
-        keyId: "SSSSKEY",
-        encodedPrivateKey: previousEncoded,
-        privateKeyBase64: Buffer.from(
-          new Uint8Array(Array.from({ length: 32 }, (_, i) => i + 5)),
-        ).toString("base64"),
-      }),
-      "utf8",
-    );
+      encodedPrivateKey: previousEncoded,
+      privateKeyBytes: new Uint8Array(Array.from({ length: 32 }, (_, i) => i + 5)),
+    });
 
     const client = new MatrixClient("https://matrix.example.org", "token", {
       encryption: true,
@@ -2258,10 +2260,7 @@ describe("MatrixClient crypto bootstrapping", () => {
     expect(result.success).toBe(false);
     expect(result.recoveryKeyAccepted).toBe(false);
     expect(result.backupUsable).toBe(true);
-    const persisted = JSON.parse(fs.readFileSync(recoveryKeyPath, "utf8")) as {
-      encodedPrivateKey?: string;
-    };
-    expect(persisted.encodedPrivateKey).toBe(previousEncoded);
+    expect(readMatrixRecoveryKey(recoveryKeyPath)?.encodedPrivateKey).toBe(previousEncoded);
   });
 
   it("returns recovery-key diagnostics without bootstrapping when backup is already usable", async () => {
@@ -2302,21 +2301,12 @@ describe("MatrixClient crypto bootstrapping", () => {
       })),
     }));
 
-    const recoveryDir = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-sdk-verify-restored-"));
-    const recoveryKeyPath = path.join(recoveryDir, "recovery-key.json");
-    fs.writeFileSync(
+    const recoveryKeyPath = createTestRecoveryKeyPath("matrix-sdk-verify-restored-");
+    writeStoredRecoveryKeyForTest({
       recoveryKeyPath,
-      JSON.stringify({
-        version: 1,
-        createdAt: new Date().toISOString(),
-        keyId: "SSSSKEY",
-        encodedPrivateKey: encoded,
-        privateKeyBase64: Buffer.from(
-          new Uint8Array(Array.from({ length: 32 }, (_, i) => i + 1)),
-        ).toString("base64"),
-      }),
-      "utf8",
-    );
+      encodedPrivateKey: encoded,
+      privateKeyBytes: new Uint8Array(Array.from({ length: 32 }, (_, i) => i + 1)),
+    });
 
     const client = new MatrixClient("https://matrix.example.org", "token", {
       encryption: true,
@@ -2416,21 +2406,12 @@ describe("MatrixClient crypto bootstrapping", () => {
       })),
     }));
 
-    const recoveryDir = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-sdk-verify-preserve-"));
-    const recoveryKeyPath = path.join(recoveryDir, "recovery-key.json");
-    fs.writeFileSync(
+    const recoveryKeyPath = createTestRecoveryKeyPath("matrix-sdk-verify-preserve-");
+    writeStoredRecoveryKeyForTest({
       recoveryKeyPath,
-      JSON.stringify({
-        version: 1,
-        createdAt: new Date().toISOString(),
-        keyId: "SSSSKEY",
-        encodedPrivateKey: previousEncoded,
-        privateKeyBase64: Buffer.from(
-          new Uint8Array(Array.from({ length: 32 }, (_, i) => i + 5)),
-        ).toString("base64"),
-      }),
-      "utf8",
-    );
+      encodedPrivateKey: previousEncoded,
+      privateKeyBytes: new Uint8Array(Array.from({ length: 32 }, (_, i) => i + 5)),
+    });
     const client = new MatrixClient("https://matrix.example.org", "token", {
       encryption: true,
       recoveryKeyPath,
@@ -2440,10 +2421,7 @@ describe("MatrixClient crypto bootstrapping", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("full Matrix identity trust");
-    const persisted = JSON.parse(fs.readFileSync(recoveryKeyPath, "utf8")) as {
-      encodedPrivateKey?: string;
-    };
-    expect(persisted.encodedPrivateKey).toBe(previousEncoded);
+    expect(readMatrixRecoveryKey(recoveryKeyPath)?.encodedPrivateKey).toBe(previousEncoded);
   });
 
   it("reports detailed room-key backup health", async () => {
