@@ -26,6 +26,7 @@ export function resolveAgentRuntimeLabel(args: {
   >;
   resolvedHarness?: string;
   fallbackProvider?: string;
+  isCliProvider?: (provider: string, config?: OpenClawConfig) => boolean;
 }): string {
   const acpAgentRaw = normalizeOptionalString(args.sessionEntry?.acp?.agent);
   const acpAgent = acpAgentRaw ? sanitizeTerminalText(acpAgentRaw) : undefined;
@@ -48,7 +49,7 @@ export function resolveAgentRuntimeLabel(args: {
     normalizeOptionalString(args.sessionEntry?.providerOverride) ??
     normalizeOptionalString(args.fallbackProvider);
   const provider = providerRaw ? sanitizeTerminalText(providerRaw) : undefined;
-  if (provider && isCliProvider(provider, args.config)) {
+  if (provider && (args.isCliProvider ?? isCliProvider)(provider, args.config)) {
     return (
       AGENT_RUNTIME_LABELS[normalizeOptionalLowercaseString(providerRaw) ?? ""] ??
       `${provider} (cli)`

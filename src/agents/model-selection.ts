@@ -99,6 +99,7 @@ export function resolvePersistedOverrideModelRef(params: {
   overrideProvider?: unknown;
   overrideModel?: unknown;
   allowPluginNormalization?: boolean;
+  allowManifestNormalization?: boolean;
 }): ModelRef | null {
   const defaultProvider = normalizePersistedDefaultProvider(params.defaultProvider);
   const overrideProvider = normalizeOptionalString(params.overrideProvider);
@@ -110,6 +111,7 @@ export function resolvePersistedOverrideModelRef(params: {
   return (
     parseModelRef(encodedOverride, defaultProvider, {
       allowPluginNormalization: params.allowPluginNormalization,
+      allowManifestNormalization: params.allowManifestNormalization,
     }) ?? {
       provider: overrideProvider || defaultProvider,
       model: overrideModel,
@@ -128,6 +130,7 @@ export function resolvePersistedModelRef(params: {
   overrideProvider?: unknown;
   overrideModel?: unknown;
   allowPluginNormalization?: boolean;
+  allowManifestNormalization?: boolean;
 }): ModelRef | null {
   const defaultProvider = normalizePersistedDefaultProvider(params.defaultProvider);
   const runtimeProvider = normalizeOptionalString(params.runtimeProvider);
@@ -139,6 +142,7 @@ export function resolvePersistedModelRef(params: {
     return (
       parseModelRef(runtimeModel, defaultProvider, {
         allowPluginNormalization: params.allowPluginNormalization,
+        allowManifestNormalization: params.allowManifestNormalization,
       }) ?? {
         provider: defaultProvider,
         model: runtimeModel,
@@ -150,6 +154,7 @@ export function resolvePersistedModelRef(params: {
     overrideProvider: params.overrideProvider,
     overrideModel: params.overrideModel,
     allowPluginNormalization: params.allowPluginNormalization,
+    allowManifestNormalization: params.allowManifestNormalization,
   });
 }
 
@@ -165,12 +170,14 @@ export function resolvePersistedSelectedModelRef(params: {
   overrideProvider?: unknown;
   overrideModel?: unknown;
   allowPluginNormalization?: boolean;
+  allowManifestNormalization?: boolean;
 }): ModelRef | null {
   const override = resolvePersistedOverrideModelRef({
     defaultProvider: params.defaultProvider,
     overrideProvider: params.overrideProvider,
     overrideModel: params.overrideModel,
     allowPluginNormalization: params.allowPluginNormalization,
+    allowManifestNormalization: params.allowManifestNormalization,
   });
   if (override) {
     return override;
@@ -180,6 +187,7 @@ export function resolvePersistedSelectedModelRef(params: {
     runtimeProvider: params.runtimeProvider,
     runtimeModel: params.runtimeModel,
     allowPluginNormalization: params.allowPluginNormalization,
+    allowManifestNormalization: params.allowManifestNormalization,
   });
 }
 
