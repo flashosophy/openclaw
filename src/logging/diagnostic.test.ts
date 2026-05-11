@@ -987,7 +987,7 @@ describe("stuck session diagnostics threshold", () => {
     expect(getDiagnosticStabilitySnapshot({ limit: 10 }).events).toContainEqual(
       expect.objectContaining({
         type: "diagnostic.liveness.warning",
-        level: "warning",
+        level: "info",
         active: 1,
         waiting: 0,
         queued: 0,

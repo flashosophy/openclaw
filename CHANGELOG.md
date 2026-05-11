@@ -205,6 +205,8 @@ Docs: https://docs.openclaw.ai
 
 ### Fixes
 
+- Control UI: surface browser-blocked WebSocket security failures with wss:// and loopback dashboard guidance instead of leaving the connection on a dead security error. Thanks @BunsDev.
+- Gateway/diagnostics: keep active-only transient event-loop max-delay samples as info-level stability telemetry instead of warning-level liveness diagnostics. Thanks @BunsDev.
 - Gateway/maintenance: prune dedupe overflow against a stable excess count and keep active agent retries from starting duplicate runs after cache eviction. (#73841) Thanks @thesomewhatyou.
 - Control UI/subagents: suppress internal `subagent_announce` handoff prompts from requester transcripts and hide legacy inter-session wrapper rows so completed subagent results no longer surface runtime context in WebChat history. (#79618) Thanks @joshavant.
 - Discord: preserve username target resolution for Discord outbound sends. (#79076) Thanks @vincentkoc.
