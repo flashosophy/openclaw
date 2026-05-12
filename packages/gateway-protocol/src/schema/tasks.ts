@@ -20,6 +20,16 @@ export const TaskLedgerStatusSchema = Type.Union([
 
 const TimestampSchema = Type.Union([Type.String(), Type.Integer({ minimum: 0 })]);
 
+export const TaskHealthSchema = Type.Object(
+  {
+    displayStatus: Type.String(),
+    stale: Type.Boolean(),
+    auditCodes: Type.Array(Type.String()),
+    maxAgeMs: Type.Optional(Type.Integer({ minimum: 0 })),
+  },
+  { additionalProperties: false },
+);
+
 /** Public task summary returned by task list/get/cancel responses. */
 export const TaskSummarySchema = Type.Object(
   {
@@ -44,6 +54,7 @@ export const TaskSummarySchema = Type.Object(
     progressSummary: Type.Optional(Type.String()),
     terminalSummary: Type.Optional(Type.String()),
     error: Type.Optional(Type.String()),
+    health: Type.Optional(TaskHealthSchema),
   },
   { additionalProperties: false },
 );
