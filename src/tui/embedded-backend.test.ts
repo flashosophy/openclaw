@@ -361,6 +361,58 @@ describe("EmbeddedTuiBackend", () => {
     ]);
   });
 
+  it("bridges assistant delta-only events into chat deltas", async () => {
+    const { EmbeddedTuiBackend } = await import("./embedded-backend.js");
+    const pending = deferred<{
+      payloads: Array<{ text: string }>;
+      meta: Record<string, unknown>;
+    }>();
+    agentCommandFromIngressMock.mockReturnValueOnce(pending.promise);
+
+    const backend = new EmbeddedTuiBackend();
+    const events: Array<{ event: string; payload: unknown }> = [];
+    backend.onEvent = (evt) => {
+      events.push({ event: evt.event, payload: evt.payload });
+    };
+
+    backend.start();
+    try {
+      await backend.sendChat({
+        sessionKey: "agent:main:main",
+        message: "hello",
+        runId: "run-local-delta",
+      });
+
+      registeredListener?.({
+        runId: "run-local-delta",
+        stream: "assistant",
+        data: { delta: "hello" },
+      });
+
+      pending.resolve({ payloads: [{ text: "hello" }], meta: {} });
+      await flushMicrotasks();
+
+      const chatPayload = events.find((entry) => entry.event === "chat")?.payload as
+        | {
+            runId?: string;
+            sessionKey?: string;
+            state?: string;
+            deltaText?: string;
+            message?: { content?: Array<{ text?: string }> };
+          }
+        | undefined;
+      expect(chatPayload).toMatchObject({
+        runId: "run-local-delta",
+        sessionKey: "agent:main:main",
+        state: "delta",
+        deltaText: "hello",
+      });
+      expect(chatPayload?.message?.content?.[0]?.text).toBe("hello");
+    } finally {
+      backend.stop();
+    }
+  });
+
   it("lists configured replace-mode models without loading the gateway catalog", async () => {
     getRuntimeConfigMock.mockReturnValue({
       models: {
