@@ -14,6 +14,7 @@ describe("chat layout styles", () => {
     const css = readLayoutCss();
 
     expect(css).toContain(".chat-queue__steer");
+    expect(css).not.toContain(".chat-queue__steer svg");
     expect(css).toContain(".chat-queue__actions");
     expect(css).toContain(".chat-queue__item--steered");
     expect(css).toContain(".chat-queue__badge");

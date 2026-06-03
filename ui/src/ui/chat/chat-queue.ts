@@ -44,7 +44,6 @@ export function renderChatQueue(props: ChatQueueProps) {
                         aria-label="Steer queued message"
                         @click=${() => props.onQueueSteer?.(item.id)}
                       >
-                        ${icons.cornerDownRight}
                         <span>Steer</span>
                       </button>
                     `

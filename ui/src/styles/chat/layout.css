@@ -973,21 +973,10 @@
   align-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   padding: 4px 8px;
   color: var(--accent);
   font-size: 12px;
   line-height: 1;
-}
-
-.chat-queue__steer svg {
-  width: 13px;
-  height: 13px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .chat-queue__steer:hover:not(:disabled) {
