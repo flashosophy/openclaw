@@ -1395,14 +1395,12 @@
   align-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   padding: 4px 8px;
   color: var(--accent);
   font-size: 12px;
   line-height: 1;
 }
 
-.chat-queue__steer svg,
 .chat-queue__retry svg {
   width: 13px;
   height: 13px;
