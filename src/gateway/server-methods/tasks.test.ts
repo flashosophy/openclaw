@@ -3,11 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  createTaskRecord,
+  createTaskRecord as createTaskRecordOrNull,
   markTaskTerminalById,
   recordTaskProgressByRunId,
   resetTaskRegistryForTests,
 } from "../../tasks/runtime-internal.js";
+import type { TaskRecord } from "../../tasks/task-registry.types.js";
 import { tasksHandlers } from "./tasks.js";
 import type { RespondFn } from "./types.js";
 
@@ -20,6 +21,14 @@ type TaskResponsePayload = {
 };
 
 let stateDir: string;
+
+function createTaskRecord(params: Parameters<typeof createTaskRecordOrNull>[0]): TaskRecord {
+  const task = createTaskRecordOrNull(params);
+  if (!task) {
+    throw new Error("expected task creation to succeed");
+  }
+  return task;
+}
 
 beforeEach(async () => {
   stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-gateway-tasks-"));
@@ -52,6 +61,32 @@ function createContext() {
   } as never;
 }
 
+async function runTaskHandler(
+  method: "tasks.list" | "tasks.get" | "tasks.cancel",
+  params: Record<string, unknown>,
+) {
+  const { calls, respond } = captureRespond();
+  await tasksHandlers[method]({
+    req: { type: "req", id: `req-${method}`, method },
+    params,
+    respond,
+    context: createContext(),
+    client: null,
+    isWebchatConnect: () => false,
+  });
+  return {
+    calls,
+    payload: calls[0]?.[1] as TaskResponsePayload | undefined,
+  };
+}
+
+async function getTaskPayload(taskId: string) {
+  const { calls, payload } = await runTaskHandler("tasks.get", { taskId });
+  expect(calls[0]?.[0]).toBe(true);
+  expect(payload?.task?.id).toBe(taskId);
+  return { calls, payload };
+}
+
 describe("tasks gateway handlers", () => {
   it("lists task summaries with SDK-facing statuses and filters", async () => {
     const running = createTaskRecord({
@@ -78,22 +113,13 @@ describe("tasks gateway handlers", () => {
       deliveryStatus: "pending",
     });
 
-    const { calls, respond } = captureRespond();
-    await tasksHandlers["tasks.list"]({
-      req: { type: "req", id: "req-1", method: "tasks.list" },
-      params: {
-        status: "running",
-        agentId: "main",
-        sessionKey: "agent:main:main",
-      },
-      respond,
-      context: createContext(),
-      client: null,
-      isWebchatConnect: () => false,
+    const { calls, payload } = await runTaskHandler("tasks.list", {
+      status: "running",
+      agentId: "main",
+      sessionKey: "agent:main:main",
     });
 
     expect(calls[0]?.[0]).toBe(true);
-    const payload = calls[0]?.[1] as TaskResponsePayload | undefined;
     expect(payload?.tasks).toHaveLength(1);
     const listedTask = payload?.tasks?.[0];
     expect(listedTask?.id).toBe(running.taskId);
@@ -156,19 +182,8 @@ describe("tasks gateway handlers", () => {
       deliveryStatus: "not_applicable",
     });
 
-    const { calls, respond } = captureRespond();
-    await tasksHandlers["tasks.get"]({
-      req: { type: "req", id: "req-2", method: "tasks.get" },
-      params: { taskId: task.taskId },
-      respond,
-      context: createContext(),
-      client: null,
-      isWebchatConnect: () => false,
-    });
+    const { payload } = await getTaskPayload(task.taskId);
 
-    expect(calls[0]?.[0]).toBe(true);
-    const payload = calls[0]?.[1] as TaskResponsePayload | undefined;
-    expect(payload?.task?.id).toBe(task.taskId);
     expect(payload?.task?.status).toBe("completed");
     expect(payload?.task?.title).toBe("Done task");
   });
@@ -200,19 +215,8 @@ describe("tasks gateway handlers", () => {
       error: "Tool failed\nOpenClaw runtime context (internal): Keep internal details private.",
     });
 
-    const { calls, respond } = captureRespond();
-    await tasksHandlers["tasks.get"]({
-      req: { type: "req", id: "req-sanitized", method: "tasks.get" },
-      params: { taskId: task.taskId },
-      respond,
-      context: createContext(),
-      client: null,
-      isWebchatConnect: () => false,
-    });
+    const { calls, payload } = await getTaskPayload(task.taskId);
 
-    expect(calls[0]?.[0]).toBe(true);
-    const payload = calls[0]?.[1] as TaskResponsePayload | undefined;
-    expect(payload?.task?.id).toBe(task.taskId);
     expect(payload?.task?.title).toBe("Compile artifact");
     expect(payload?.task?.terminalSummary).toBe("Failed after build");
     expect(payload?.task?.error).toBe("Tool failed");
@@ -231,18 +235,12 @@ describe("tasks gateway handlers", () => {
       deliveryStatus: "pending",
     });
 
-    const { calls, respond } = captureRespond();
-    await tasksHandlers["tasks.cancel"]({
-      req: { type: "req", id: "req-3", method: "tasks.cancel" },
-      params: { taskId: task.taskId, reason: "user stopped task" },
-      respond,
-      context: createContext(),
-      client: null,
-      isWebchatConnect: () => false,
+    const { calls, payload } = await runTaskHandler("tasks.cancel", {
+      taskId: task.taskId,
+      reason: "user stopped task",
     });
 
     expect(calls[0]?.[0]).toBe(true);
-    const payload = calls[0]?.[1] as TaskResponsePayload | undefined;
     expect(payload?.found).toBe(true);
     expect(payload?.cancelled).toBe(true);
     expect(payload?.task?.id).toBe(task.taskId);

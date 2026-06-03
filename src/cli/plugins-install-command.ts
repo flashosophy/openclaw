@@ -1,4 +1,7 @@
 import fs from "node:fs";
+import { isRecord } from "@openclaw/normalization-core/record-coerce";
+import { uniqueStrings } from "@openclaw/normalization-core/string-normalization";
+import { theme } from "../../packages/terminal-core/src/theme.js";
 import { collectChannelDoctorStaleConfigMutations } from "../commands/doctor/shared/channel-doctor.js";
 import { assertConfigWriteAllowedInCurrentMode, readConfigFileSnapshot } from "../config/config.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
@@ -31,7 +34,6 @@ import {
 import { tracePluginLifecyclePhaseAsync } from "../plugins/plugin-lifecycle-trace.js";
 import { validateJsonSchemaValue } from "../plugins/schema-validator.js";
 import { defaultRuntime, type RuntimeEnv } from "../runtime.js";
-import { theme } from "../terminal/theme.js";
 import { shortenHomePath } from "../utils.js";
 import { formatCliCommand } from "./command-format.js";
 import { looksLikeLocalInstallSpec } from "./install-spec.js";
@@ -63,9 +65,14 @@ function resolveInstallMode(force?: boolean): "install" | "update" {
 
 function resolveInstallSafetyOverrides(overrides: InstallSafetyOverrides): InstallSafetyOverrides {
   return {
+    config: overrides.config,
     dangerouslyForceUnsafeInstall: overrides.dangerouslyForceUnsafeInstall,
+    trustedSourceLinkedOfficialInstall: overrides.trustedSourceLinkedOfficialInstall,
   };
 }
+
+const DEPRECATED_DANGEROUS_FORCE_UNSAFE_INSTALL_WARNING =
+  "--dangerously-force-unsafe-install is deprecated and no longer affects plugin installs because built-in install-time dangerous-code scanning has been removed. Configure security.installPolicy for operator-owned install decisions.";
 
 function findTrustedCatalogPackageInstall(packageName: string):
   | {
@@ -91,10 +98,6 @@ function findTrustedCatalogPackageInstall(packageName: string):
     ...(install?.npmSpec ? { npmSpec: install.npmSpec } : {}),
     ...(install?.expectedIntegrity ? { expectedIntegrity: install.expectedIntegrity } : {}),
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function isEmptyRecord(value: Record<string, unknown>): boolean {
@@ -204,7 +207,7 @@ async function tryInstallHookPackFromLocalPath(params: {
     }
 
     const existing = params.snapshot.config.hooks?.internal?.load?.extraDirs ?? [];
-    const merged = Array.from(new Set([...existing, params.resolvedPath]));
+    const merged = uniqueStrings([...existing, params.resolvedPath]);
     await persistHookPackInstall({
       snapshot: {
         config: {
@@ -326,7 +329,7 @@ async function tryInstallPluginOrHookPackFromNpmSpec(params: {
     logger: createPluginInstallLogger(params.runtime),
   });
   if (!result.ok) {
-    if (isTerminalPluginInstallSecurityFailure(result.code)) {
+    if (isTerminalPluginInstallFailure(result.code)) {
       (params.runtime ?? defaultRuntime).error(result.error);
       return { ok: false };
     }
@@ -468,10 +471,11 @@ async function tryInstallPluginFromGitSpec(params: {
   return { ok: true };
 }
 
-function isTerminalPluginInstallSecurityFailure(code?: string): boolean {
+function isTerminalPluginInstallFailure(code?: string): boolean {
   return (
     code === PLUGIN_INSTALL_ERROR_CODE.SECURITY_SCAN_BLOCKED ||
-    code === PLUGIN_INSTALL_ERROR_CODE.SECURITY_SCAN_FAILED
+    code === PLUGIN_INSTALL_ERROR_CODE.SECURITY_SCAN_FAILED ||
+    code === PLUGIN_INSTALL_ERROR_CODE.UNSUPPORTED_PLAIN_FILE_PLUGIN
   );
 }
 
@@ -592,6 +596,9 @@ export async function runPluginInstallCommand(params: {
     marketplace:
       params.opts.marketplace ?? (shorthand?.ok ? shorthand.marketplaceSource : undefined),
   };
+  if (opts.dangerouslyForceUnsafeInstall) {
+    runtime.log(theme.warn(DEPRECATED_DANGEROUS_FORCE_UNSAFE_INSTALL_WARNING));
+  }
   if (opts.marketplace) {
     if (opts.link) {
       runtime.error(
@@ -650,7 +657,7 @@ export async function runPluginInstallCommand(params: {
   }
   const cfg = snapshot.config;
   const installMode = resolveInstallMode(opts.force);
-  const safetyOverrides = resolveInstallSafetyOverrides(opts);
+  const safetyOverrides = resolveInstallSafetyOverrides({ ...opts, config: cfg });
   const extensionsDir = resolveDefaultPluginExtensionsDir();
 
   if (opts.marketplace) {
@@ -687,17 +694,18 @@ export async function runPluginInstallCommand(params: {
   if (fs.existsSync(resolved)) {
     if (opts.link) {
       const existing = cfg.plugins?.load?.paths ?? [];
-      const merged = Array.from(new Set([...existing, resolved]));
+      const merged = uniqueStrings([...existing, resolved]);
       const probe = await installPluginFromPath({
         ...safetyOverrides,
         mode: installMode,
         path: resolved,
         dryRun: true,
+        allowSourceTypeScriptEntries: true,
         extensionsDir,
         logger: createPluginInstallLogger(runtime),
       });
       if (!probe.ok) {
-        if (isTerminalPluginInstallSecurityFailure(probe.code)) {
+        if (isTerminalPluginInstallFailure(probe.code)) {
           runtime.error(probe.error);
           return runtime.exit(1);
         }
@@ -751,7 +759,7 @@ export async function runPluginInstallCommand(params: {
       logger: createPluginInstallLogger(runtime),
     });
     if (!result.ok) {
-      if (isTerminalPluginInstallSecurityFailure(result.code)) {
+      if (isTerminalPluginInstallFailure(result.code)) {
         runtime.error(result.error);
         return runtime.exit(1);
       }

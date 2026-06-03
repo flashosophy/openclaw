@@ -1,43 +1,20 @@
-import { resolveModelAgentRuntimeMetadata } from "../agents/agent-runtime-metadata.js";
-import { resolveConfiguredProviderFallback } from "../agents/configured-provider-fallback.js";
-import { DEFAULT_CONTEXT_TOKENS, DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
-import {
-  isCliProvider,
-  parseModelRef,
-  resolvePersistedSelectedModelRef,
-} from "../agents/model-selection.js";
-import { normalizeProviderId } from "../agents/provider-id.js";
-import { resolveAgentModelPrimaryValue } from "../config/model-input.js";
-import type { SessionEntry } from "../config/sessions/types.js";
-import type { OpenClawConfig } from "../config/types.js";
-import { classifySessionKind } from "../sessions/classify-session-kind.js";
+import { normalizeProviderId } from "@openclaw/model-catalog-core/provider-id";
 import {
   normalizeLowercaseStringOrEmpty,
   normalizeOptionalString,
   normalizeOptionalLowercaseString,
-} from "../shared/string-coerce.js";
+} from "@openclaw/normalization-core/string-coerce";
+import { readAcpSessionMeta } from "../acp/runtime/session-meta.js";
+import { resolveModelAgentRuntimeMetadata } from "../agents/agent-runtime-metadata.js";
+import { resolveConfiguredProviderFallback } from "../agents/configured-provider-fallback.js";
+import { DEFAULT_CONTEXT_TOKENS, DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
+import { parseModelRef, resolvePersistedSelectedModelRef } from "../agents/model-selection.js";
+import { resolveAgentModelPrimaryValue } from "../config/model-input.js";
+import type { SessionEntry } from "../config/sessions/types.js";
+import type { OpenClawConfig } from "../config/types.js";
+import { resolveStoredSessionKeyForAgentStore } from "../gateway/session-store-key.js";
+import { classifySessionKind } from "../sessions/classify-session-kind.js";
 import { resolveAgentRuntimeLabel } from "../status/agent-runtime-label.js";
-
-const cliProviderCacheByConfig = new WeakMap<OpenClawConfig, Map<string, boolean>>();
-
-function isCliProviderCachedForStatus(provider: string, config?: OpenClawConfig): boolean {
-  if (!config || typeof config !== "object") {
-    return isCliProvider(provider, config);
-  }
-  const providerKey = normalizeOptionalLowercaseString(provider) ?? provider;
-  let cachedByProvider = cliProviderCacheByConfig.get(config);
-  if (!cachedByProvider) {
-    cachedByProvider = new Map<string, boolean>();
-    cliProviderCacheByConfig.set(config, cachedByProvider);
-  }
-  const cached = cachedByProvider.get(providerKey);
-  if (cached !== undefined) {
-    return cached;
-  }
-  const resolved = isCliProvider(provider, config);
-  cachedByProvider.set(providerKey, resolved);
-  return resolved;
-}
 
 function resolveStatusModelRefFromRaw(params: {
   cfg: OpenClawConfig;
@@ -59,7 +36,6 @@ function resolveStatusModelRefFromRaw(params: {
       }
       const parsed = parseModelRef(modelKey, params.defaultProvider, {
         allowPluginNormalization: false,
-        allowManifestNormalization: false,
       });
       if (parsed) {
         return parsed;
@@ -69,7 +45,6 @@ function resolveStatusModelRefFromRaw(params: {
   }
   return parseModelRef(trimmed, params.defaultProvider, {
     allowPluginNormalization: false,
-    allowManifestNormalization: false,
   });
 }
 
@@ -173,7 +148,6 @@ function resolveSessionModelRef(
       overrideProvider: entry?.providerOverride,
       overrideModel: entry?.modelOverride,
       allowPluginNormalization: false,
-      allowManifestNormalization: false,
     }) ?? resolved
   );
 }
@@ -186,23 +160,30 @@ function resolveSessionRuntimeLabel(params: {
   agentId?: string;
   sessionKey: string;
 }): string {
+  const acpSessionKey = params.agentId
+    ? resolveStoredSessionKeyForAgentStore({
+        cfg: params.cfg,
+        agentId: params.agentId,
+        sessionKey: params.sessionKey,
+      })
+    : params.sessionKey;
+  const acpMeta = readAcpSessionMeta({ sessionKey: acpSessionKey });
   const runtime = resolveModelAgentRuntimeMetadata({
     cfg: params.cfg,
     agentId: params.agentId ?? "",
     provider: params.provider,
     model: params.model,
-    sessionKey: params.sessionKey,
-    acpRuntime: params.entry?.acp != null,
-    acpBackend: params.entry?.acp?.backend,
+    sessionKey: acpSessionKey,
+    acpRuntime: acpMeta != null,
+    acpBackend: acpMeta?.backend,
   });
   const id = normalizeOptionalLowercaseString(runtime.id);
-  const resolvedHarness = id && id !== "pi" && id !== "auto" ? id : undefined;
+  const resolvedHarness = id && id !== "openclaw" && id !== "auto" ? id : undefined;
   return resolveAgentRuntimeLabel({
     config: params.cfg,
     sessionEntry: params.entry,
     resolvedHarness,
     fallbackProvider: params.provider,
-    isCliProvider: isCliProviderCachedForStatus,
   });
 }
 
