@@ -69,6 +69,7 @@ import type { InlineDirectives } from "./directive-handling.js";
 import { isSystemEventProvider } from "./effective-reply-route.js";
 import { shouldUseReplyFastTestRuntime } from "./get-reply-fast-path.js";
 import { resolvePreparedReplyQueueState } from "./get-reply-run-queue.js";
+import { buildActiveGoalGrounding } from "./goal-grounding.js";
 import {
   buildDirectChatContext,
   buildGroupChatContext,
@@ -613,12 +614,17 @@ export async function runPreparedReply(
     isNewSession ? sessionCtx : { ...sessionCtx, ThreadStarterBody: undefined },
     { includeFormattingHints: !useFastReplyRuntime },
   );
+  // Re-inject the active goal every turn so it steers the loop instead of only
+  // firing a one-shot continuation prompt on /goal start/resume. Renders nothing
+  // unless the session goal is `active`. Best-effort; never throws.
+  const activeGoalGrounding = buildActiveGoalGrounding(sessionEntry);
   const extraSystemPromptParts = [
     inboundMetaPrompt,
     directChatContext,
     groupChatContext,
     groupIntro,
     groupSystemPrompt,
+    activeGoalGrounding,
     buildExecOverridePromptHint({
       execOverrides,
       elevatedLevel: resolvedElevatedLevel,
@@ -627,11 +633,13 @@ export async function runPreparedReply(
     }),
   ].filter(Boolean);
   // Static parts only (no per-message inbound metadata) for CLI session reuse hashing.
+  // Include the goal grounding so reuse hashing changes when the goal changes.
   const extraSystemPromptStaticParts = [
     directChatContext,
     groupChatContext,
     groupIntro,
     groupSystemPrompt,
+    activeGoalGrounding,
     buildExecOverridePromptHint({
       execOverrides,
       elevatedLevel: resolvedElevatedLevel,
